@@ -1,0 +1,122 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Kofi – Campus Planner</title>
+<style>
+:root{--r:#e11d2e;--b:#1d4ed8;--k:#07070c;--t:#f4f4f8;--m:#9aa0b4;--c:rgba(255,255,255,.07);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font-family:Georgia,"Trebuchet MS",serif;color:var(--t);background:radial-gradient(900px 500px at 0% 0%,rgba(225,29,46,.45),transparent 60%),radial-gradient(900px 500px at 100% 100%,rgba(29,78,216,.5),transparent 60%),var(--k);min-height:100vh}
+h1,h2,h3{font-family:"Trebuchet MS",sans-serif;margin:.2em 0}
+button,input,select,textarea{font:inherit;color:var(--t)}
+input,select,textarea{width:100%;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.4);margin:5px 0}
+button{background:linear-gradient(90deg,var(--r),var(--b));border:0;padding:11px 16px;border-radius:10px;cursor:pointer;font-weight:700}
+button.g{background:var(--c);border:1px solid rgba(255,255,255,.18)}
+.card{background:var(--c);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px;margin:12px 0;backdrop-filter:blur(6px)}
+.wrap{max-width:760px;margin:0 auto;padding:14px}
+.badge{position:fixed;width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 11px "Trebuchet MS",sans-serif;text-align:center;border:3px solid #fff;opacity:.9;z-index:0;box-shadow:0 4px 14px #000a}
+#auth{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:70px 14px}
+#auth .card{position:relative;z-index:2;width:100%;max-width:400px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:linear-gradient(var(--k),transparent)}
+nav button{white-space:nowrap;background:var(--c);border:1px solid rgba(255,255,255,.15)}nav button.on{background:linear-gradient(90deg,var(--r),var(--b))}
+.msg{padding:10px 13px;border-radius:14px;margin:8px 0;max-width:88%;white-space:pre-wrap;line-height:1.45}
+.me{background:var(--b);margin-left:auto}.ai{background:rgba(225,29,46,.28);border:1px solid rgba(225,29,46,.5)}
+#log{min-height:300px;max-height:52vh;overflow:auto;background:linear-gradient(160deg,rgba(225,29,46,.18),rgba(0,0,0,.6) 50%,rgba(29,78,216,.25));border-radius:14px;padding:10px}
+.row{display:flex;gap:8px}.row>*{flex:1}.row button{flex:0 0 auto}
+.tt{display:grid;grid-template-columns:54px repeat(5,minmax(70px,1fr));gap:3px;font-size:11px;min-width:480px}
+.tt div{padding:4px;border-radius:6px;min-height:34px}.th{background:var(--c);text-align:center;font-weight:700}
+.sl{color:#fff;font-weight:700;line-height:1.2}.small{color:var(--m);font-size:13px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--c);gap:8px}
+.ok{color:#4ade80}.bad{color:#f87171}.hide{display:none}
+</style></head><body>
+<div id="auth"></div>
+<div id="app" class="hide"><div class="wrap">
+<div class="row" style="align-items:center"><div><h1>🇬🇭 Kofi</h1><div class="small" id="who"></div></div><button class="g" id="out" style="flex:0">Log out</button></div>
+<nav id="nav"></nav><div id="view"></div></div></div>
+<div id="toast" class="card hide" style="position:fixed;bottom:16px;left:12px;right:12px;z-index:50;max-width:420px;margin:auto"></div>
+<script>
+const $=s=>document.querySelector(s);
+addEventListener("unhandledrejection",e=>toast("Something went wrong: "+((e.reason&&e.reason.message)||e.reason),8000));
+const T=(p,ms=4000)=>Promise.race([p,new Promise((_,j)=>setTimeout(()=>j(new Error("timeout")),ms))]);
+const BAD=[["UG","#e11d2e","top:12px;left:12px"],["KNUST","#1d4ed8","top:12px;right:12px"],["UCC","#111","bottom:12px;left:12px"],["UPSA","#1d4ed8","bottom:12px;right:12px"],["UEW","#e11d2e","top:50%;left:6px"],["GIMPA","#111","top:50%;right:6px"],["UDS","#1d4ed8","top:84px;left:12px"],["ASHESI","#e11d2e","bottom:84px;right:12px"]];
+const SCH={"ug.edu.gh":["University of Ghana","Legon, Accra"],"st.ug.edu.gh":["University of Ghana","Legon, Accra"],"knust.edu.gh":["KNUST","Kumasi"],"st.knust.edu.gh":["KNUST","Kumasi"],"stu.ucc.edu.gh":["University of Cape Coast","Cape Coast"],"ucc.edu.gh":["University of Cape Coast","Cape Coast"],"ashesi.edu.gh":["Ashesi University","Berekuso"],"upsa.edu.gh":["UPSA","Accra"]};
+const PROG={"University of Ghana":["BSc Computer Science","BSc Nursing","BA Economics","LLB Law"],"KNUST":["BSc Computer Engineering","BSc Architecture","BSc Pharmacy"],"University of Cape Coast":["BEd Basic Education","BSc Biological Sciences","BA Political Science"],"Ashesi University":["BSc Business Admin","BSc Management Info Systems"],"UPSA":["BSc Accounting","BSc Marketing"]};
+const CRS=["Introduction to the Field","Quantitative Methods","Academic Writing","Research Methods","Ethics & Society","Data & Computing","Communication Skills","Principles & Practice","African Studies","Advanced Topics"];
+const COL=["#e11d2e","#1d4ed8","#7c3aed","#0f766e","#c2410c","#be185d","#4d7c0f","#0369a1"];
+const DAYS=["Mon","Tue","Wed","Thu","Fri"],HRS=[8,10,12,14,16];
+const HALLS=["Great Hall","Balme Library LT","NNB 101","Commonwealth Hall Annex","JQB 204","Science Block C","Law LT 3","Engineering LT 1"];
+let U=null,D=null,tab="chat",chat=[],sampleFn=null;
+function toast(m,ms=6000){const t=$("#toast");t.textContent=m;t.classList.remove("hide");clearTimeout(toast.i);toast.i=setTimeout(()=>t.classList.add("hide"),ms)}
+const MEM={};const ls=(k,v)=>{if(v===undefined){try{const r=localStorage.getItem(k);if(r!==null)return JSON.parse(r)}catch(e){}return k in MEM?JSON.parse(MEM[k]):null}const j=JSON.stringify(v);MEM[k]=j;try{localStorage.setItem(k,j)}catch(e){}};
+async function H(s){try{const b=await T(crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)),2000);return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(e){return "f"+hs(s+"kofi")+hs("kofi"+s)}}
+function hs(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h}
+const school=e=>SCH[(e.split("@")[1]||"").toLowerCase()];
+// cloud
+let TOKEN=null;try{TOKEN=localStorage.getItem("kofi:t")}catch(e){}
+const blank=()=>({courses:[],events:[],news:[],past:[],seen:{}});
+async function api(p,body,method){const r=await fetch(p,{method:method||(body?"POST":"GET"),headers:{"Content-Type":"application/json",...(TOKEN?{Authorization:"Bearer "+TOKEN}:{})},body:body?JSON.stringify(body):undefined});let j={};try{j=await r.json()}catch(e){}if(!r.ok){if(r.status===401&&TOKEN)logout(true);throw new Error(j.error||"Request failed ("+r.status+")")}return j}
+function logout(soft){TOKEN=null;try{localStorage.removeItem("kofi:t");localStorage.removeItem("kofi:s")}catch(e){}if(!soft)location.reload();else setTimeout(()=>location.reload(),800)}
+let st;function save(){clearTimeout(st);st=setTimeout(()=>api("/api/data",{data:D},"PUT").catch(()=>toast("Couldn't sync — check your connection")),400)}
+async function load(){try{const r=await api("/api/data");return Object.assign(blank(),r.data||{})}catch(e){return blank()}}
+function shrink(f){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=im.width*k;c.height=im.height*k;c.getContext("2d").drawImage(im,0,0,c.width,c.height);ok({mediaType:"image/jpeg",data:c.toDataURL("image/jpeg",.82).split(",")[1]})};im.onerror=no;im.src=URL.createObjectURL(f)})}
+// auth
+function authUI(mode="login",pend){
+ const a=$("#auth");a.innerHTML=BAD.map(b=>`<div class="badge" style="background:${b[1]};${b[2]}">${b[0]}</div>`).join("")+`<div class="card"><h1 style="text-align:center">🇬🇭 Kofi</h1><div class="small" style="text-align:center">Hi, I'm Kofi — your campus planner. Class, parties, study & fake-flyer checks, sorted.</div><div id="f"></div></div>`;
+ const f=$("#f"),busy=(b,on)=>{b.disabled=on;b.style.opacity=on?.5:1};
+ if(mode==="verify"){f.innerHTML=`<p>We emailed a 6-digit code to <b>${esc(pend.e)}</b>. Check spam too.</p>${pend.devCode?`<div class="msg ai" style="max-width:100%">Test mode code: <b>${pend.devCode}</b></div>`:""}<input id="c" inputmode="numeric" maxlength="6" placeholder="------"><button id="go" style="width:100%">Verify</button><button class="g" id="rs" style="width:100%;margin-top:8px">Resend code</button><p class="small" id="msg"></p>`;
+  $("#go").onclick=async ev=>{const b=ev.target,m=$("#msg");busy(b,true);try{const r=await api("/api/verify",{email:pend.e,code:$("#c").value.trim()});TOKEN=r.token;try{localStorage.setItem("kofi:t",TOKEN)}catch(e){}enter(pend.e)}catch(x){m.textContent=x.message}busy(b,false)};
+  $("#rs").onclick=async()=>{try{await api("/api/resend",{email:pend.e});$("#msg").textContent="New code sent."}catch(x){$("#msg").textContent=x.message}}}
+ else{const su=mode==="signup";f.innerHTML=`<input id="e" type="email" placeholder="Email"><input id="p" type="password" placeholder="Password (min 6)">${su?'<input id="p2" type="password" placeholder="Confirm password">':""}<button id="go" style="width:100%">${su?"Create account":"Log in"}</button><p class="small" id="msg"></p><button class="g" id="sw" style="width:100%">${su?"I have an account":"Create account"}</button>`;
+  $("#sw").onclick=()=>authUI(su?"login":"signup");
+  $("#go").onclick=async ev=>{const b=ev.target,e=$("#e").value.trim().toLowerCase(),p=$("#p").value,m=$("#msg");m.textContent="";
+   if(!/^\S+@\S+\.\S+$/.test(e))return m.textContent="Enter a valid email.";if(p.length<6)return m.textContent="Password needs 6+ characters.";
+   if(su&&p!==$("#p2").value)return m.textContent="Passwords don't match.";
+   busy(b,true);m.textContent=su?"Sending your code…":"Logging in…";
+   try{if(su){const r=await api("/api/signup",{email:e,password:p});authUI("verify",{e,devCode:r.devCode})}
+    else{const r=await api("/api/login",{email:e,password:p});TOKEN=r.token;try{localStorage.setItem("kofi:t",TOKEN)}catch(x){}enter(e)}}
+   catch(x){m.textContent=x.message;busy(b,false)}}}}
+async function enter(e){U=e;try{localStorage.setItem("kofi:s",e)}catch(x){}D=await load();if(!TOKEN)return;$("#auth").classList.add("hide");$("#app").classList.remove("hide");$("#who").textContent=e;
+ chat=[{r:"ai",t:`Akwaaba! I'm Kofi 👋 Tell me about your week — classes, parties, study goals — and I'll fit it all together. Try: "I want to attend a party Friday 8pm and need 2 hours of study."`}];nav();render();pollNews();setInterval(pollNews,300000)}
+$("#out").onclick=()=>logout();
+const TABS=[["chat","💬 Chat"],["tt","🗓 Timetable"],["ev","🎉 Events"],["vf","🔍 Verify"],["nw","📰 News"]];
+function nav(){$("#nav").innerHTML=TABS.map(t=>`<button class="${t[0]===tab?"on":""}" data-t="${t[0]}">${t[1]}</button>`).join("");document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;nav();render()})}
+function render(){({chat:vChat,tt:vTT,ev:vEv,vf:vVf,nw:vNw})[tab]()}
+// schedule logic
+function slots(c){const h=hs(c.code);return[0,1].map(i=>({d:(h+i*2)%5,t:HRS[(h>>3)%5],hall:HALLS[(h>>2)%HALLS.length]}))}
+function busy(){const b=[];D.courses.forEach(c=>slots(c).forEach(s=>b.push({d:s.d,a:s.t,z:s.t+2,n:c.name})));D.events.forEach(e=>b.push({d:e.d,a:e.h,z:e.h+(e.len||2),n:e.title}));return b}
+function free(){const b=busy(),o=[];for(let d=0;d<5;d++)for(let h=8;h<=20;h+=2)if(!b.some(x=>x.d===d&&h<x.z&&h+2>x.a))o.push(DAYS[d]+" "+h+":00");return o}
+function ctx(){return `Student ${U}. Classes: ${D.courses.map(c=>c.name+" "+slots(c).map(s=>DAYS[s.d]+" "+s.t+":00 "+s.hall).join("/")).join("; ")||"none yet"}. Events: ${D.events.map(e=>e.title+" "+DAYS[e.d]+" "+e.h+":00").join("; ")||"none"}. Free 2h slots: ${free().slice(0,14).join(", ")}.`}
+function vChat(){$("#view").innerHTML=`<div class="card"><div id="log">${chat.map(m=>`<div class="msg ${m.r==="me"?"me":"ai"}">${esc(m.t)}</div>`).join("")}</div><div class="row"><input id="q" placeholder="Ask Kofi to plan your week…"><button id="s">Send</button></div></div>`;
+ const lg=$("#log");lg.scrollTop=1e9;const go=async()=>{const q=$("#q").value.trim();if(!q)return;chat.push({r:"me",t:q});chat.push({r:"ai",t:"…"});vChat();let a;
+  try{a=(await api("/api/chat",{message:q,context:ctx()})).reply}catch(e){const f=free();a=`I'm Kofi. I couldn't reach my brain (${e.message}). Your free 2-hour slots: ${f.slice(0,5).join(", ")||"none"}.`}
+  chat[chat.length-1].t=a;vChat()};$("#s").onclick=go;$("#q").onkeydown=e=>{if(e.key==="Enter")go()}}
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function vTT(){const sc=school(U);const el=$("#view");
+ if(D.courses.length&&!D.edit){return grid(el)}
+ if(!sc){el.innerHTML=`<div class="card"><b>I don't recognise that email's school.</b><p class="small">Use your student email (e.g. name@st.ug.edu.gh, @st.knust.edu.gh, @stu.ucc.edu.gh).</p></div>`;return}
+ const P=D.prog;el.innerHTML=`<div class="card"><h3>${sc[0]}</h3><p class="small">${sc[1]} · Pick your programme, then ≥5 courses.</p><select id="pg"><option value="">Choose programme…</option>${PROG[sc[0]].map(p=>`<option ${p===P?"selected":""}>${p}</option>`).join("")}</select><div id="cl"></div></div>`;
+ $("#pg").onchange=e=>{D.prog=e.target.value;D.pick=[];cl()};cl();
+ function cl(){const c=$("#cl");if(!D.prog){c.innerHTML="";return}D.pick=D.pick||[];
+  const list=CRS.map((n,i)=>({code:(D.prog.split(" ").pop().slice(0,3).toUpperCase())+" "+(101+i*3),name:n,cr:i%3===0?4:3}));
+  const tot=list.filter(x=>D.pick.includes(x.code)).reduce((a,x)=>a+x.cr,0);
+  c.innerHTML=list.map(x=>`<label class="item"><span><input type="checkbox" style="width:auto" data-c="${x.code}" ${D.pick.includes(x.code)?"checked":""}> ${x.code} ${x.name}</span><span class="small">${x.cr} cr</span></label>`).join("")+`<p><b>Total: ${tot} credit points</b> (${D.pick.length} courses)</p><button id="gen" ${D.pick.length<5?"disabled style='opacity:.4'":""} style="width:100%">Generate timetable</button>`;
+  c.querySelectorAll("input").forEach(i=>i.onchange=()=>{D.pick=i.checked?[...D.pick,i.dataset.c]:D.pick.filter(z=>z!==i.dataset.c);cl()});
+  const g=$("#gen");if(g)g.onclick=()=>{D.courses=list.filter(x=>D.pick.includes(x.code));D.edit=false;save();vTT()}}}
+function grid(el){const cs=D.courses,cell={};cs.forEach((c,i)=>slots(c).forEach(s=>cell[s.d+"-"+s.t]={c,i,s}));
+ let h=`<div class="card"><h3>Your timetable</h3><div class="small">${cs.reduce((a,c)=>a+c.cr,0)} credit points · demo schedule data (connect your university's real timetable feed for live halls)</div><div style="overflow-x:auto;margin-top:10px"><div class="tt"><div class="th"></div>${DAYS.map(d=>`<div class="th">${d}</div>`).join("")}`;
+ HRS.forEach(t=>{h+=`<div class="th">${t}:00</div>`;for(let d=0;d<5;d++){const x=cell[d+"-"+t];h+=x?`<div class="sl" style="background:${COL[x.i%8]}">${x.c.code}<br><span style="font-weight:400">${x.s.hall}</span></div>`:`<div style="background:var(--c)"></div>`}});
+ el.innerHTML=h+`</div></div><div style="margin-top:10px">${cs.map((c,i)=>`<span class="small"><span style="color:${COL[i%8]}">■</span> ${c.name} · </span>`).join("")}</div><button class="g" id="rd" style="margin-top:10px">Change courses</button></div>`;
+ $("#rd").onclick=()=>{D.edit=true;vTT()}}
+function vEv(){const f=free();$("#view").innerHTML=`<div class="card"><h3>Add an event</h3><input id="en" placeholder="e.g. Hall week party"><div class="row"><select id="ed">${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select><select id="eh">${[8,10,12,14,16,18,20,22].map(h=>`<option>${h}</option>`).join("")}</select></div><button id="ea" style="width:100%">Schedule it</button><p class="small" id="em"></p></div>
+ <div class="card"><h3>Your events</h3>${D.events.map((e,i)=>`<div class="item"><span>${esc(e.title)} · ${DAYS[e.d]} ${e.h}:00</span><span><button class="g" data-i="${i}" data-a="ics">📅</button> <button class="g" data-i="${i}" data-a="rm">✕</button></span></div>`).join("")||'<span class="small">Nothing yet.</span>'}<button class="g" id="rem" style="margin-top:10px">🔔 Enable reminders</button></div><div class="card small"><b>Free 2h study slots:</b> ${f.slice(0,8).join(" · ")||"none"}</div>`;
+ $("#ea").onclick=()=>{const t=$("#en").value.trim();if(!t)return;const d=+$("#ed").value,h=+$("#eh").value,cl=busy().find(x=>x.d===d&&h<x.z&&h+2>x.a);
+  if(cl){$("#em").innerHTML=`<span class="bad">Clash with ${esc(cl.n)}.</span> Try: ${f.slice(0,3).join(", ")}`;return}
+  D.events.push({title:t,d,h,len:2});D.past=(D.past||[]);D.past.push({title:t,d,h,at:Date.now()});save();vEv()};
+ document.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{const e=D.events[+b.dataset.i];if(b.dataset.a==="rm"){D.events.splice(+b.dataset.i,1);save();vEv()}else{const n=new Date(),dt=new Date(n);dt.setDate(n.getDate()+((e.d+1-n.getDay()+7)%7||7));dt.setHours(e.h,0,0,0);const z=x=>x.toISOString().replace(/[-:]|\.\d+/g,"");const ics=`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nSUMMARY:${e.title}\r\nDTSTART:${z(dt)}\r\nDTEND:${z(new Date(+dt+72e5))}\r\nBEGIN:VALARM\r\nTRIGGER:-PT60M\r\nACTION:DISPLAY\r\nDESCRIPTION:Kofi reminder\r\nEND:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR`;try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="kofi-event.ics";a.click();toast("Open the .ics file to add it to your calendar with a 1-hour reminder.")}catch(x){toast("Download failed.")}}});
+ $("#rem").onclick=async()=>{try{const p=await Notification.requestPermission();toast(p==="granted"?"Reminders on (while the app is open).":"Notifications blocked.")}catch(e){toast("Use the .ics button for calendar reminders.")}}}
+function vVf(){$("#view").innerHTML=`<div class="card"><h3>Is this flyer real?</h3><p class="small">Upload a flyer/poster photo or paste its text. Kofi checks it and searches the web for the real source.</p><input type="file" id="fi" accept="image/*"><textarea id="ft" rows="3" placeholder="Or paste the flyer text / who sent it…"></textarea><button id="fv" style="width:100%">Verify</button><div id="fr" class="msg ai hide" style="max-width:100%"></div></div>`;
+ $("#fv").onclick=async ev=>{const b=ev.target,r=$("#fr");r.classList.remove("hide");r.textContent="Checking and searching the web…";b.disabled=true;try{const f=$("#fi").files[0];if(!f&&!$("#ft").value.trim())throw new Error("Add a photo or some text first");const img=f?await shrink(f):null;r.textContent=(await api("/api/verify-flyer",{text:$("#ft").value,image:img})).reply}catch(e){r.textContent="Couldn't verify: "+e.message}b.disabled=false}}
+function newsRow(n){return `<div class="item"><span>${n.official?'<span class="ok">✅ Official</span> ':""}<a href="${esc(n.link)}" target="_blank" rel="noopener" style="color:#93c5fd">${esc(n.title)}</a><br><span class="small">${esc(n.source)} · ${esc((n.date||"").slice(0,16))}</span></span></div>`}
+function vNw(){const sc=school(U);$("#view").innerHTML=`<div class="card"><h3>School news</h3><div class="row"><input id="nq" placeholder="Search your school…" value="${sc?esc(sc[0]):""}"><button id="ns">Search</button></div><div id="nr"></div></div><div class="card"><b>Followed (you get alerts for official news)</b>${(D.news||[]).map(n=>`<div class="item"><span>${esc(n)}</span><button class="g" data-u="${esc(n)}">Unfollow</button></div>`).join("")||'<span class="small"> None yet.</span>'}<button class="g" id="al" style="margin-top:8px">🔔 Enable alerts</button></div>`;
+ $("#al").onclick=async()=>{try{toast((await Notification.requestPermission())==="granted"?"Alerts on.":"Notifications blocked.")}catch(e){toast("Alerts not supported here.")}};
+ $("#ns").onclick=async()=>{const q=$("#nq").value.trim();if(!q)return;$("#nr").innerHTML='<p class="small">Loading all news…</p>';try{const r=await api("/api/news?q="+encodeURIComponent(q)+"&when=3y");$("#nr").innerHTML=`<button id="fl" style="width:100%;margin:8px 0">Follow “${esc(q)}”</button>`+(r.items.map(newsRow).join("")||'<p class="small">No news found.</p>');$("#fl").onclick=()=>{D.news=[...new Set([...(D.news||[]),q])];D.seen=D.seen||{};D.seen[q]=r.items.map(i=>i.link);save();vNw()}}catch(e){$("#nr").textContent=e.message}};
+ document.querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>{D.news=D.news.filter(x=>x!==b.dataset.u);save();vNw()})}
+async function pollNews(){for(const q of (D.news||[])){try{const r=await api("/api/news?q="+encodeURIComponent(q)+"&when=7d");D.seen=D.seen||{};const old=D.seen[q]||[];const fresh=r.items.filter(i=>i.official&&!old.includes(i.link));D.seen[q]=[...new Set([...old,...r.items.map(i=>i.link)])];if(old.length&&fresh.length){toast("✅ Official news: "+fresh[0].title,12000);try{new Notification("Kofi · "+q,{body:fresh[0].title})}catch(e){}}save()}catch(e){}}}
+authUI("login");BAD.length;const s=ls("kofi:s");if(s&&TOKEN)enter(s);
+</script></body></html>
